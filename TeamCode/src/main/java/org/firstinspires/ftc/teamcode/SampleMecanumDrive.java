@@ -18,7 +18,6 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 
 import org.firstinspires.ftc.teamcode.utils.Localizer;
-import org.firstinspires.ftc.teamcode.utils.Logging;
 import org.firstinspires.ftc.teamcode.utils.Pose2D;
 import org.firstinspires.ftc.teamcode.utils.Trajectory;
 import org.firstinspires.ftc.teamcode.utils.UpdatePriority;
@@ -331,6 +330,8 @@ public class SampleMecanumDrive {
         packet.put("Loops: ", loops);
         packet.put("Num Motors Updated: ", numMotorsUpdated);
         packet.put("Heading Error: ", headingError);
+        packet.put("Forward Velocity Error: ", forwardVelocityError);
+        packet.put("LeftRight Velocity Error: ", leftRightVelocityError);
         packet.put("Person: ", "Hudson");
 
         dashboard.sendTelemetryPacket(packet);
@@ -435,12 +436,33 @@ public class SampleMecanumDrive {
         }
     }
 
-    public static double headingP = 1.0;
-    public static double headingI = 0.0;
-    public static double headingD = 0.0;
+    public static double headingP = 2.5;
+    public static double headingI = 0.03;
+    public static double headingD = 0.05;
+
     double headingIntegral = 0;
     double lastHeadingError = 0;
     double headingError = 0;
+
+    public static double forwardP = 1;
+    public static double forwardI = 0;
+    public static double forwardD = 0;
+
+    double forwardIntegralError = 0;
+    double lastForwardPowerError = 0;
+    double forwardPowerError = 0;
+
+    double forwardVelocityError = 0;
+
+    public static double leftRightP = 1;
+    public static double leftRightI = 0;
+    public static double leftRightD = 0;
+
+    double leftRightIntegralError = 0;
+    double lastLeftRightPowerError = 0;
+    double leftRightPowerError = 0;
+
+    double leftRightVelocityError = 0;
 
     public void followTrajectory (LinearOpMode opMode, Trajectory trajectory) {
         targetPoint = new Pose2D(0,0,0);
@@ -457,6 +479,7 @@ public class SampleMecanumDrive {
             double relativeErrorX = Math.cos(headingError) * error;
             double relativeErrorY = Math.sin(headingError) * error;
 
+            // headingPID
             if(lastError < 8 && trajectory.points.size() < 100) {
                 headingError = trajectory.points.get(trajectory.points.size() - 1).heading - localizer.heading;
             }
@@ -471,16 +494,36 @@ public class SampleMecanumDrive {
             }
 
             headingIntegral += headingError * loopTime;
-            double dHeadingError = (headingError - lastHeadingError) / loopTime;
+            double headingDerivativeError = (headingError - lastHeadingError) / loopTime;
             lastHeadingError = headingError;
 
-            double turn = headingError * headingP + headingIntegral * headingI + dHeadingError*headingD;
-            //Math.min(Math.pow(Math.toDegrees(headingError)/3,2) * 4/15 * targetPoint.speed, Math.min(0.6 * targetPoint.speed,0.4)) * Math.signum(headingError); // 15 degrees per second
-            double forward = (relativeErrorX / error) * targetPoint.speed * (1.0 - Math.abs(turn));
+            double turn = headingError * headingP + headingIntegral * headingI + headingDerivativeError*headingD;
 
-            double left = (relativeErrorY / error) * targetPoint.speed * (1.0 - Math.abs(turn));
+            // forward PID and leftRight PID
+            double forward = 0;
+            double leftRight = 0;
 
-            setMotorPowers(forward - left - turn, forward + left - turn, forward - left + turn, forward + left + turn);
+            if(error != 0) {
+                forward = (relativeErrorX / error) * targetPoint.speed * (1.0 - Math.abs(turn)); // powers
+                leftRight = (relativeErrorY / error) * targetPoint.speed * (1.0 - Math.abs(turn)); // powers
+            }
+
+            double targetForwardVelocity = forward * 54 * 0.9; // converts motorPower into inches/sec velocity
+            forwardVelocityError = targetForwardVelocity - localizer.relativeCurrentVel.x;
+            forwardIntegralError += forwardVelocityError * loopTime;
+            double forwardDerivativeError = (forwardPowerError - lastForwardPowerError) / loopTime;
+            lastForwardPowerError = forwardPowerError;
+
+            double targetLeftRightVelocity = leftRight * 40 * 0.9; // converts motorPower into inches/sec velocity
+            leftRightVelocityError = targetLeftRightVelocity - localizer.relativeCurrentVel.y;
+            leftRightIntegralError += leftRightVelocityError * loopTime;
+            double leftRightDerivativeError = (leftRightPowerError - lastLeftRightPowerError) / loopTime;
+            lastLeftRightPowerError = leftRightPowerError;
+
+            forward = forwardVelocityError * forwardP + forwardIntegralError * forwardI + forwardDerivativeError*forwardD;
+            leftRight = leftRightVelocityError * leftRightP + leftRightIntegralError * leftRightI + leftRightDerivativeError*leftRightD;
+
+            setMotorPowers(forward - leftRight - turn, forward + leftRight - turn, forward - leftRight + turn, forward + leftRight + turn);
             trajectory.update(localizer.currentPose, localizer.currentVel);
         }
     }
