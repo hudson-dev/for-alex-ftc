@@ -20,6 +20,8 @@ public class PIDTuner extends LinearOpMode {
 
         double radius = 25;
 
+        drive.update();
+
         while(opModeIsActive()) {
             drive.followTrajectory(this,
                 new Trajectory(new Pose2D(radius,radius,Math.toRadians(0),power).rotateCoordinates(), false)

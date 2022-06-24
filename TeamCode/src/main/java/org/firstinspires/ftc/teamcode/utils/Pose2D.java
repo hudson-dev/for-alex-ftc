@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.utils;
 
 public class Pose2D {
-    public double x, y, heading, headingOffset, radius, speed;
+    public double x = 0, y = 0, heading = 0, headingOffset = 0, radius = 0, speed = 0;
 
     public Pose2D(double x, double y, double heading, double headingOffset, double radius, double speed) {
         this.x = x;

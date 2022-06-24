@@ -10,7 +10,7 @@ import java.util.ArrayList;
 
 public class Localizer {
     public Encoder[] encoders;
-    long lastTime = System.nanoTime();
+    long lastTime = System.nanoTime()-1000000;
     public double x = 0, y = 0, heading = 0, startingHeading = 0;
 
     public ArrayList<Pose2D> poseHistory = new ArrayList<>();
@@ -75,7 +75,7 @@ public class Localizer {
         y += relativeDeltaY*Math.cos(lastHeading) + relativeDeltaX*Math.sin(lastHeading);
 
         currentPose = new Pose2D(x,y,heading);
-        poseHistory.add(currentPose);
+        poseHistory.add(0, new Pose2D(x,y,heading));
 
         updateVelocity();
 
